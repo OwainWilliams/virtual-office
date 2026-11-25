@@ -260,45 +260,19 @@ export function createScene(canvas) {
     }
   }
 
-  /** A monitor seen from behind, on a stand. (x, y) is its top-left corner. */
-  function drawMonitor(x, y) {
-    box(x, y, 12, 8, '#2b2f3a');
-    box(x, y, 12, 1, '#3d4352');
-    box(x + 5, y + 3, 2, 2, '#6b7385');
-    box(x + 10, y + 6, 1, 1, '#58d68d');
-    box(x + 5, y + 8, 2, 3, '#1f232c');
-    box(x + 3, y + 11, 6, 1, '#1f232c');
-  }
-
-  /** The owner's logo on the laptop lid: two interlocking yellow and magenta shapes, 7 by 7 pixels. */
-  function drawLogo(x, y) {
-    const rows = ['.YY.YY.', 'YYY.YYY', 'YMM.MYY', 'MMM.YYY', 'MMY.YYM', 'MMM.MMM', '.MM.MM.'];
-    const colours = { Y: '#ffed00', M: '#ff00f0' };
-    rows.forEach((row, rowIndex) => {
-      [...row].forEach((cell, column) => {
-        if (colours[cell]) box(x + column, y + rowIndex, 1, 1, colours[cell]);
-      });
-    });
-  }
   function drawDesk(id, seat, working, time, frame) {
     const half = id === 'owner' ? 22 : 18;
     box(seat.x - half, seat.y + 5, half * 2, 11, '#a5743f');
     box(seat.x - half, seat.y + 16, half * 2, 6, '#70492a');
     box(seat.x - half, seat.y + 22, 3, 5, '#5a3a20');
     box(seat.x + half - 3, seat.y + 22, 3, 5, '#5a3a20');
-    if (id === 'owner') {
-      // Your two extra monitors, one either side of the laptop.
-      drawMonitor(seat.x - 21, seat.y - 4);
-      drawMonitor(seat.x + 9, seat.y - 4);
-    }
     // laptop seen from behind
     // The lid turns red while this task's latest test run is failing, and shows a green light once it passes.
     const mood = agents[id]?.mood;
-    box(seat.x - 6, seat.y + 2, 12, 8, mood === 'failing' ? (frame % 2 ? '#e0574c' : '#c9473d') : '#c5cad3');
-    box(seat.x - 6, seat.y + 10, 12, 1, '#8d939e');
+    box(seat.x - 6, seat.y + 2, 12, 8, mood === 'failing' ? (frame % 2 ? '#e0574c' : '#c9473d') : id === 'owner' ? '#4b5060' : '#c5cad3');
+    box(seat.x - 6, seat.y + 10, 12, 1, id === 'owner' ? '#2f333e' : '#8d939e');
     const light = mood === 'passing' ? '#3fcf7a' : mood === 'failing' ? '#ffd9d4' : working && frame % 2 ? '#fff6b0' : '#8d939e';
-    if (id === 'owner') drawLogo(seat.x - 3, seat.y + 3);
-    else box(seat.x - 1, seat.y + 5, 2, 2, light);
+    box(seat.x - 1, seat.y + 5, 2, 2, light);
     // mug, steaming for a while after a coffee run
     box(seat.x + half - 9, seat.y + 8, 4, 4, '#f3f1ea');
     if (time < (hotMugUntil[id] || 0)) steam(seat.x + half - 8, seat.y + 8, frame);
