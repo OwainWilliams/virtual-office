@@ -123,6 +123,10 @@ Click the board behind the project manager to see the count per column.
   Tell the manager about work for later and the project manager adds and sizes it; the board
   panel lists the items.
 
+## Who said what
+
+Each person has a colour (the shirt colour you see on the floor) and a small face. In the chat, your messages and Claudette's carry that colour and face, and when someone reports back to Claudette a report card appears with their face, name, role, the task title and the first line of the report. Click it to read the rest. Agent names in Claudette's messages are coloured too.
+
 ## What the floor tells you
 
 - Each name tag shows the tokens that agent used today; hover for the split by model and the

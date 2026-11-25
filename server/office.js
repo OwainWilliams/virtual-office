@@ -503,8 +503,8 @@ today, what is still in progress and where it stands, what is waiting on the own
     };
   }
 
-  say(from, text) {
-    const message = { id: randomUUID(), at: Date.now(), from, text };
+  say(from, text, extra = {}) {
+    const message = { id: randomUUID(), at: Date.now(), from, text, ...extra };
     this.chat.push(message);
     if (this.chat.length > CHAT_LIMIT) this.chat.shift();
     this.emit('chat', message);
@@ -836,6 +836,7 @@ today, what is still in progress and where it stands, what is waiting on the own
       agent.note('report', report);
       agent.set({ status: 'idle', task: null, activity: '', model: agent.defaultModel }); // the change lasts for one task
       if (agent.abort?.signal.aborted) return; // stopped by the owner: do not wake the manager
+      this.say('report', report, { agent: agentId, title }); // shown in the chat, so you can see who is reporting
       this.emit('visit', { from: agentId, to: 'manager' });
       this.enqueue({ from: agentId, text: `[Report from ${agent.name} (${agent.role}) on "${title}"]\n${report}` });
     });

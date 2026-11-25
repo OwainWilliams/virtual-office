@@ -1,4 +1,4 @@
-import { createScene, SEATS, WIDTH, HEIGHT } from './scene.js';
+import { createScene, drawAvatar, SEATS, WIDTH, HEIGHT } from './scene.js';
 import { rich } from './rich.js';
 
 const byId = (id) => document.getElementById(id);
@@ -177,6 +177,70 @@ function questionCard(question) {
   return card;
 }
 
+// Light enough to read on the dark panel; each follows the colour of that person's shirt on the floor.
+const TONES = {
+  owner: '#e0b040', manager: '#b98af0', senior: '#5fa0ff', junior: '#4cc98a', qa: '#f09a4a', pm: '#f06b95', reviewer: '#a9b4c4',
+};
+
+function avatar(id) {
+  const canvas = element('canvas', 'avatar');
+  canvas.setAttribute('role', 'presentation');
+  drawAvatar(canvas, id);
+  canvas.style.setProperty('--tone', TONES[id] || 'var(--line)');
+  return canvas;
+}
+
+/** Marks each agent's name in the text with their own colour. Only text nodes are touched. */
+function tintNames(fragment) {
+  const people = Object.values(state.agents);
+  if (!people.length) return fragment;
+  const byName = new Map(people.map((person) => [person.name.toLowerCase(), person]));
+  const pattern = new RegExp(`\\b(${people.map((person) => person.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`, 'g');
+  const walker = document.createTreeWalker(fragment, NodeFilter.SHOW_TEXT);
+  const found = [];
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (!node.parentElement?.closest?.('code, pre, a') && pattern.test(node.data)) found.push(node);
+    pattern.lastIndex = 0;
+  }
+  for (const node of found) {
+    const parts = node.data.split(pattern);
+    node.replaceWith(...parts.map((part, index) => {
+      const person = index % 2 ? byName.get(part.toLowerCase()) : null;
+      if (!person) return document.createTextNode(part);
+      const span = element('span', 'agent-name', part);
+      span.style.setProperty('--tone', TONES[person.id] || 'inherit');
+      return span;
+    }));
+  }
+  return fragment;
+}
+
+const openReports = new Set(); // reports you have expanded, kept across redraws
+
+function reportCard(message) {
+  const person = state.agents[message.agent];
+  const node = element('div', 'message report toned rich');
+  node.style.setProperty('--tone', TONES[message.agent] || 'var(--line)');
+  const who = element('span', 'who');
+  who.append(avatar(message.agent), element('span', '', `${person?.name || message.agent} · `), element('span', 'role', `${person?.role || ''} · ${clock(message.at)}`));
+  const details = element('details');
+  details.open = openReports.has(message.id);
+  details.addEventListener('toggle', () => (details.open ? openReports.add(message.id) : openReports.delete(message.id)));
+  const lines = String(message.text).trim().split('\n').filter(Boolean);
+  const first = (lines[0] || '').replace(/[*#`]/g, '');
+  const summary = element('summary');
+  summary.append(element('div', 'title', message.title || 'Report'));
+  summary.append(first.length > 140 ? `${first.slice(0, 139)}…` : first);
+  if (String(message.text).trim().length > first.length) summary.append(element('span', 'more', details.open ? '(hide)' : '(show all)'));
+  details.addEventListener('toggle', () => {
+    const more = summary.querySelector('.more');
+    if (more) more.textContent = details.open ? '(hide)' : '(show all)';
+  });
+  details.append(summary, tintNames(rich(message.text)));
+  node.append(who, details);
+  return node;
+}
+
 function renderChat() {
   const items = [
     ...state.chat.map((message) => ({ at: message.at, message })),
@@ -184,16 +248,22 @@ function renderChat() {
   ].sort((first, second) => first.at - second.at);
   const nodes = items.map(({ message, question }) => {
     if (question) return questionCard(question);
+    if (message.from === 'report') return reportCard(message);
     const node = element('div', `message ${message.from}`);
     if (message.from !== 'system') {
+      const id = message.from === 'owner' ? 'owner' : 'manager';
       const who = message.from === 'owner' ? 'You' : state.agents.manager?.name || 'Manager';
-      node.append(element('span', 'who', `${who} · ${clock(message.at)}`));
+      const label = element('span', 'who');
+      label.append(avatar(id), `${who} · ${clock(message.at)}`);
+      node.classList.add('toned');
+      node.style.setProperty('--tone', TONES[id]);
+      node.append(label);
     }
     // Agents write lists, bold and links; your own messages are shown exactly as typed.
     if (message.from === 'owner') node.append(message.text);
     else {
       node.classList.add('rich');
-      node.append(rich(message.text));
+      node.append(tintNames(rich(message.text)));
     }
     return node;
   });

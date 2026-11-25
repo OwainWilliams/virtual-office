@@ -15,6 +15,27 @@ export const SEATS = {
 };
 const VISITORS = ['reviewer'];
 
+/** A small face for the chat, drawn from the same colours as the person on the office floor. */
+export function drawAvatar(canvas, id) {
+  const look = LOOKS[id];
+  if (!look) return;
+  canvas.width = 14;
+  canvas.height = 14;
+  const pen = canvas.getContext('2d');
+  const fill = (x, y, width, height, colour) => {
+    pen.fillStyle = colour;
+    pen.fillRect(x, y, width, height);
+  };
+  fill(1, 10, 12, 4, look.shirt);
+  if (look.accent) fill(6, 10, 2, 4, look.accent);
+  fill(3, 2, 8, 8, look.skin);
+  fill(3, 1, 8, 3, look.hair);
+  fill(2, 2, 1, 4, look.hair);
+  fill(11, 2, 1, 4, look.hair);
+  fill(5, 6, 1, 1, '#1d1d24');
+  fill(8, 6, 1, 1, '#1d1d24');
+}
+
 const LOOKS = {
   owner: { shirt: '#2b2d3a', hair: '#3a2a1e', skin: '#e8b98f', accent: '#e0b040' },
   manager: { shirt: '#7b4bb3', hair: '#1e1a22', skin: '#c98d62' },
