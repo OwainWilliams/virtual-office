@@ -135,6 +135,7 @@ Click the board behind the project manager to see the count per column.
   light once it passes.
 - When a pull request is merged, confetti falls and the dog gets the zoomies.
 - The contractor beams in and out like a transporter when a review starts and ends.
+- Click any plant and the contractor drops in for 30 seconds, even with no review to do.
 - Click the water cooler and it spills; the pet Claude spark hurries over with a mop and cleans it up.
 - The windows follow your clock: daylight, a golden dawn and dusk, stars at night.
 

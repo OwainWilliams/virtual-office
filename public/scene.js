@@ -46,6 +46,7 @@ const DOG_SPOTS = [
   { x: 260, y: 234 }, { x: 94, y: 98 }, { x: 58, y: 154 }, { x: 238, y: 100 },
 ];
 
+const PLANTS = [[140, 36], [382, 36], [16, 228], [382, 208]];
 const standSpot = (id) => ({ x: SEATS[id].x + 28, y: SEATS[id].y + 8 });
 const between = (low, high) => low + Math.random() * (high - low);
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
@@ -83,6 +84,9 @@ export function createScene(canvas) {
   const MOP_SPOT = { x: 354, y: 70 };
   const MOP_TIME = 5200;
   let spill = null; // { at, mopStart }
+  // Click a plant and the contractor drops in for a while, even with no review to do.
+  const GUEST_TIME = 30000;
+  let guestUntil = 0;
   // Visitors beam in and out: { id, mode: 'in' | 'out', start }
   const BEAM_TIME = 1800;
   const beams = [];
@@ -184,7 +188,7 @@ export function createScene(canvas) {
     }
 
     // plants
-    for (const [x, y] of [[140, 36], [382, 36], [16, 228], [382, 208]]) {
+    for (const [x, y] of PLANTS) {
       box(x - 4, y, 8, 7, '#8a5a34');
       box(x - 6, y - 9, 12, 9, '#3f8f4f');
       box(x - 3, y - 13, 6, 5, '#55ab63');
@@ -448,7 +452,7 @@ export function createScene(canvas) {
       if (VISITORS.includes(id) && !agent) continue; // this office has no such visitor: no desk either
       const working = agent?.status === 'working';
       const beam = beams.find((candidate) => candidate.id === id);
-      const away = VISITORS.includes(id) && (agent?.status || 'idle') === 'idle' && !beam;
+      const away = VISITORS.includes(id) && (agent?.status || 'idle') === 'idle' && !beam && !(id === 'reviewer' && guestUntil);
       if (!walkers.has(id) && !away) {
         const paintPerson = () => drawPerson(seat.x, seat.y, LOOKS[id], { typing: working, frame, alert: agent?.status === 'waiting' });
         items.push({ y: seat.y, paint: beam ? () => drawBeam(beam, seat, time, paintPerson) : paintPerson });
@@ -581,6 +585,10 @@ export function createScene(canvas) {
     }
     for (const pet of pets) stepPet(pet, time, delta);
     for (let index = beams.length - 1; index >= 0; index -= 1) if (time - beams[index].start >= BEAM_TIME) beams.splice(index, 1);
+    if (guestUntil && time >= guestUntil) {
+      guestUntil = 0; // the visit is over: beam out
+      beams.push({ id: 'reviewer', mode: 'out', start: time });
+    }
     if (spill) {
       if (!spill.mopStart && claude.state === 'mop') spill.mopStart = time;
       if (spill.mopStart && time - spill.mopStart >= MOP_TIME) spill = null;
@@ -616,7 +624,8 @@ export function createScene(canvas) {
     const overBall = Math.abs(x - spot.x) <= 6 && Math.abs(y - (spot.y - 3 - spot.height)) <= 6;
     const overPet = pets.some((candidate) => Math.abs(x - candidate.x) <= 11 && Math.abs(y - (candidate.y - 6)) <= 10);
     const overCooler = x >= 357 && x <= 375 && y >= 28 && y <= 58;
-    canvas.style.cursor = overBall || overPet || overCooler ? 'pointer' : '';
+    const overPlant = PLANTS.some(([plantX, plantY]) => Math.abs(x - plantX) <= 7 && y >= plantY - 14 && y <= plantY + 7);
+    canvas.style.cursor = overBall || overPet || overCooler || overPlant ? 'pointer' : '';
   });
 
   // Click the ball to throw it for the dog, or click a pet to give it a pat.
@@ -635,6 +644,10 @@ export function createScene(canvas) {
       spillWater(now);
       return;
     }
+    if (!pet && PLANTS.some(([plantX, plantY]) => Math.abs(x - plantX) <= 7 && y >= plantY - 14 && y <= plantY + 7)) {
+      inviteContractor(now);
+      return;
+    }
     if (!pet) return;
     pet.lovedUntil = now + 1500;
     if (pet.state === 'sleep' && !reducedMotion) {
@@ -642,6 +655,15 @@ export function createScene(canvas) {
       pet.until = now + 4000;
     }
   });
+
+  /** Click a plant: the contractor beams in for 30 seconds if they have no review on. */
+  function inviteContractor(now) {
+    if (reducedMotion || !agents.reviewer || agents.reviewer.status !== 'idle' || guestUntil) return;
+    const existing = beams.findIndex((beam) => beam.id === 'reviewer');
+    if (existing >= 0) beams.splice(existing, 1);
+    beams.push({ id: 'reviewer', mode: 'in', start: now });
+    guestUntil = now + GUEST_TIME;
+  }
 
   /** Click the cooler: water goes everywhere, and the Claude spark fetches a mop. */
   function spillWater(now) {
@@ -658,6 +680,10 @@ export function createScene(canvas) {
         const wasHere = present(agents, id);
         const isHere = present(nextAgents, id);
         if (reducedMotion || wasHere === isHere) continue;
+        if (isHere && guestUntil) {
+          guestUntil = 0; // a real review starts while the guest is in: they simply stay
+          continue;
+        }
         // A visitor beams in when their work starts and out again when it ends (not on the first snapshot).
         if (!Object.keys(agents).length) continue;
         const existing = beams.findIndex((beam) => beam.id === id);
