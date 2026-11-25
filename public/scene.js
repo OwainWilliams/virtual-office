@@ -398,34 +398,28 @@ export function createScene(canvas) {
     drawHeart(dog, time);
   }
 
-  /** A small walking Claude spark: an orange starburst with eyes and feet. */
+  /** The pet Claude: the orange pixel mascot, with a wide body, little arms, square eyes and four legs. */
   function drawClaude(time, frame) {
     const { x } = claude;
     const moving = claude.state === 'walk';
     const y = claude.y - (moving && frame % 2 ? 1 : 0);
     const coat = '#d97757';
-    const dark = '#b3563a';
-    const twinkle = !moving && frame % 4 === 0 ? 1 : 0;
-    const reach = 3 + twinkle;
-    box(x - 1, y - 8 - reach, 2, reach, coat); // up
-    box(x - 1, y - 4, 2, reach - 1, coat); // down
-    box(x - 3 - reach, y - 7, reach, 2, coat); // left
-    box(x + 3, y - 7, reach, 2, coat); // right
-    for (const [stepX, stepY] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-      box(x + stepX * 4 - (stepX < 0 ? 1 : 0), y - 6 + stepY * 4 - (stepY < 0 ? 1 : 0), 2, 2, coat);
-      if (twinkle) box(x + stepX * 6 - (stepX < 0 ? 1 : 0), y - 6 + stepY * 6 - (stepY < 0 ? 1 : 0), 1, 1, coat);
-    }
-    box(x - 3, y - 9, 6, 6, coat); // body
-    box(x - 2, y - 7, 1, 2, '#1d1d24'); // eyes
-    box(x + 1, y - 7, 1, 2, '#1d1d24');
-    const stride = moving && frame % 2 ? 1 : 0;
-    box(x - 3 + stride, y - 1, 2, 1, dark); // feet
-    box(x + 1 - stride, y - 1, 2, 1, dark);
+    box(x - 4, y - 8, 9, 6, coat); // body
+    box(x - 5, y - 6, 1, 2, coat); // arms
+    box(x + 5, y - 6, 1, 2, coat);
+    box(x - 3, y - 6, 1, 2, '#000000'); // eyes
+    box(x + 3, y - 6, 1, 2, '#000000');
+    // Four legs; when walking, the outer pair and the inner pair take turns to lift.
+    const lift = (pair) => (moving && frame % 2 === pair ? 1 : 0);
+    box(x - 4, y - 2, 1, 2 - lift(0), coat);
+    box(x - 2, y - 2, 1, 2 - lift(1), coat);
+    box(x + 2, y - 2, 1, 2 - lift(0), coat);
+    box(x + 4, y - 2, 1, 2 - lift(1), coat);
     if (claude.state === 'mop') {
       const sway = Math.round(Math.sin(time / 180) * 4);
-      box(x + 5 + sway / 2, y - 12, 1, 11, '#8a5a34'); // handle
-      box(x + 3 + sway, y - 2, 7, 2, '#e9e6dd'); // mop head
-      box(x + 3 + sway, y, 7, 1, '#c9c5b8');
+      box(x + 7 + sway / 2, y - 12, 1, 11, '#8a5a34'); // handle
+      box(x + 5 + sway, y - 2, 7, 2, '#e9e6dd'); // mop head
+      box(x + 5 + sway, y, 7, 1, '#c9c5b8');
     }
     drawHeart(claude, time);
   }
