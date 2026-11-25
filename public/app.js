@@ -460,6 +460,7 @@ function handle({ type, payload }) {
     if (payload.officeName) state.officeName = payload.officeName; // set by "officeName" in config.json
     state.project = payload.project;
     state.setup = Boolean(payload.setup);
+    scene.setLatitude(payload.latitude); // sets how long the windows stay light
     state.agents = Object.fromEntries(payload.agents.map((agent) => [agent.id, agent]));
     state.chat = payload.chat;
     state.questions = payload.questions;

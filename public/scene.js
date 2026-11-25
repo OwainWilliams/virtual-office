@@ -15,6 +15,28 @@ export const SEATS = {
 };
 const VISITORS = ['reviewer'];
 
+/**
+ * Sunrise and sunset as local decimal hours, for a date and a latitude. The zone's own meridian stands in
+ * for your longitude, which is close enough for a window. Polar day and night are handled.
+ */
+export function sunTimes(date, latitude) {
+  const radians = Math.PI / 180;
+  const day = Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 86400000);
+  const declination = 23.44 * radians * Math.sin(((2 * Math.PI) / 365) * (284 + day));
+  const phi = latitude * radians;
+  const cosine = (Math.sin(-0.833 * radians) - Math.sin(phi) * Math.sin(declination)) / (Math.cos(phi) * Math.cos(declination));
+  if (cosine >= 1) return { sunrise: 12, sunset: 12 }; // the sun does not rise
+  if (cosine <= -1) return { sunrise: -1, sunset: 25 }; // the sun does not set
+  const half = Math.acos(cosine) / radians / 15;
+  const angle = ((2 * Math.PI) / 365) * (day - 81);
+  const equation = 9.87 * Math.sin(2 * angle) - 7.53 * Math.cos(angle) - 1.5 * Math.sin(angle); // minutes
+  const january = new Date(date.getFullYear(), 0, 1).getTimezoneOffset();
+  const july = new Date(date.getFullYear(), 6, 1).getTimezoneOffset();
+  const saving = (Math.max(january, july) - date.getTimezoneOffset()) / 60; // hours of summer time in force
+  const noon = 12 + saving - equation / 60;
+  return { sunrise: noon - half, sunset: noon + half };
+}
+
 /** A small face for the chat, drawn from the same colours as the person on the office floor. */
 export function drawAvatar(canvas, id) {
   const look = LOOKS[id];
@@ -78,6 +100,7 @@ export function createScene(canvas) {
   const context = canvas.getContext('2d');
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let agents = {};
+  let latitude = 51.5; // where the office is, for the windows; config.json can change it
   let board = null;
   let confetti = [];
   const walkers = new Map(); // id -> { x, y, points, pauseUntil, mug }
@@ -126,19 +149,21 @@ export function createScene(canvas) {
 
   function drawRoom(time, frame) {
     // floor
-    box(0, 0, WIDTH, HEIGHT, '#d6c39c');
+    // A mid-dark warm grey, so the cream dog, the orange Claude and the light puddle all stand out on it.
+    box(0, 0, WIDTH, HEIGHT, '#6b6763');
     for (let y = 26; y < HEIGHT; y += 16) {
-      for (let x = (y / 16) % 2 ? 0 : 16; x < WIDTH; x += 32) box(x, y, 16, 16, '#cdb98f');
+      for (let x = (y / 16) % 2 ? 0 : 16; x < WIDTH; x += 32) box(x, y, 16, 16, '#625e5b');
     }
     // back wall
     box(0, 0, WIDTH, 26, '#53648a');
     box(0, 22, WIDTH, 4, '#3b4767');
     // windows
-    // windows show the real time of day: night, dawn or dusk, or daylight
+    // windows show the real time of day for the time of year: night, dawn or dusk, or daylight
     const clock = new Date();
     const hour = clock.getHours() + clock.getMinutes() / 60;
-    const night = hour < 6 || hour >= 20;
-    const golden = !night && (hour < 8 || hour >= 17.5);
+    const { sunrise, sunset } = sunTimes(clock, latitude);
+    const night = hour < sunrise - 0.4 || hour >= sunset + 0.4;
+    const golden = !night && (hour < sunrise + 1 || hour >= sunset - 1);
     for (const x of [150, 226]) {
       box(x, 5, 30, 14, '#2c3855');
       box(x + 1, 6, 28, 12, night ? '#141a36' : golden ? '#f2a65a' : '#9fd0ea');
@@ -693,6 +718,9 @@ export function createScene(canvas) {
   }
 
   return {
+    setLatitude(value) {
+      if (Number.isFinite(value)) latitude = Math.max(-66, Math.min(66, value));
+    },
     update(nextAgents) {
       const present = (list, id) => (list[id]?.status || 'idle') !== 'idle';
       for (const id of VISITORS) {

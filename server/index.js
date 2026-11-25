@@ -81,6 +81,7 @@ let office = registry.active ? openOffice() : null;
 
 const setupSnapshot = () => ({
   officeName: config.officeName || null,
+  latitude: config.latitude,
   owner: config.ownerName,
   setup: true,
   project: null,

@@ -141,7 +141,7 @@ Each person has a colour (the shirt colour you see on the floor) and a small fac
 - The contractor beams in and out like a transporter when a review starts and ends.
 - Click any plant and the contractor drops in for 30 seconds, even with no review to do.
 - Click the water cooler and it spills; the pet Claude spark hurries over with a mop and cleans it up.
-- The windows follow your clock: daylight, a golden dawn and dusk, stars at night.
+- The windows follow your clock and the time of year: daylight, a golden dawn and dusk, and stars at night. Sunrise and sunset are worked out from `latitude` in your config (51.5 by default, which is London), so a winter evening is dark by about four.
 
 ## Projects
 

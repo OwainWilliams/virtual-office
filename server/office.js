@@ -492,6 +492,7 @@ today, what is still in progress and where it stands, what is waiting on the own
     for (const agent of Object.values(this.agents)) logs[agent.id] = agent.log;
     return {
       officeName: this.config.officeName || null,
+      latitude: this.config.latitude,
       owner: this.config.ownerName,
       project: this.project.id,
       demo: this.demo,

@@ -1,5 +1,6 @@
 {
   "port": 4700,
+  "latitude": 51.5,
   "officeName": "Virtual Office",
   "ownerName": "Boss",
   "jiraSite": "",
