@@ -134,6 +134,8 @@ Click the board behind the project manager to see the count per column.
 - A laptop lid turns red while that task's latest test run is failing, and shows a green
   light once it passes.
 - When a pull request is merged, confetti falls and the dog gets the zoomies.
+- The contractor beams in and out like a transporter when a review starts and ends.
+- Click the water cooler and it spills; the pet Claude spark hurries over with a mop and cleans it up.
 - The windows follow your clock: daylight, a golden dawn and dusk, stars at night.
 
 ## Projects

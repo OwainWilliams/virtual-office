@@ -14,7 +14,6 @@ export const SEATS = {
   reviewer: { x: 256, y: 62 }, // the hot desk: the contractor is only there while reviewing
 };
 const VISITORS = ['reviewer'];
-const ENTRANCE = { x: WIDTH + 8, y: CORRIDOR }; // visitors come and go off the right edge of the floor
 
 const LOOKS = {
   owner: { shirt: '#2b2d3a', hair: '#3a2a1e', skin: '#e8b98f', accent: '#e0b040' },
@@ -78,6 +77,15 @@ export function createScene(canvas) {
     { x: 60, y: 156 }, { x: 100, y: 102 }, { x: 300, y: 120 }, { x: 388, y: 122 }, { x: 386, y: 238 },
   ];
   const ball = { x: 386, y: 238, fromX: 386, fromY: 238, thrownAt: -BALL_FLIGHT };
+  // The water cooler: click it and it spills; the Claude spark comes to mop it up.
+  const COOLER = { x: 366, y: 43 };
+  const PUDDLE = { x: 368, y: 66 };
+  const MOP_SPOT = { x: 354, y: 70 };
+  const MOP_TIME = 5200;
+  let spill = null; // { at, mopStart }
+  // Visitors beam in and out: { id, mode: 'in' | 'out', start }
+  const BEAM_TIME = 1800;
+  const beams = [];
 
   const box = (x, y, width, height, colour) => {
     context.fillStyle = colour;
@@ -190,6 +198,62 @@ export function createScene(canvas) {
     box(353, 221, 20, 7, '#8fa3d6');
     box(336, 226, 7, 3, '#c0392b');
     box(337, 226, 5, 1, '#7a5a3a');
+  }
+
+  /** The spilt water: drips from the tap, spreads, and shrinks as it is mopped. */
+  function drawSpill(time) {
+    if (!spill) return;
+    const age = time - spill.at;
+    if (age < 1400) {
+      for (let drop = 0; drop < 3; drop += 1) {
+        const fall = ((age + drop * 170) % 500) / 500;
+        box(COOLER.x - 2 + drop, COOLER.y + 6 + fall * 17, 1, 2, '#8fc7ea');
+      }
+    }
+    const spread = Math.min(1, age / 2500);
+    const mopped = spill.mopStart ? Math.min(1, (time - spill.mopStart) / MOP_TIME) : 0;
+    const size = spread * (1 - mopped);
+    if (size <= 0.03) return;
+    const halfWidth = Math.max(1, Math.round(13 * size));
+    const halfHeight = Math.max(1, Math.round(4 * size));
+    for (let row = -halfHeight; row <= halfHeight; row += 1) {
+      const span = Math.round(halfWidth * Math.sqrt(1 - (row * row) / (halfHeight * halfHeight + 0.01)));
+      box(PUDDLE.x - span, PUDDLE.y + row, span * 2, 1, row === 0 ? '#a9d7f0' : '#8fc7ea');
+    }
+    if (halfWidth > 4) box(PUDDLE.x - halfWidth + 3, PUDDLE.y - 1, 3, 1, '#e6f5fd');
+  }
+
+  /** Transporter effect: sparkles and a bright column while a visitor materialises or fades away. */
+  function drawBeam(beam, seat, time, paintPerson) {
+    const progress = Math.min(1, (time - beam.start) / BEAM_TIME);
+    const top = seat.y - 12;
+    const height = 30;
+    const visible = beam.mode === 'in' ? progress : 1 - progress;
+    context.save();
+    context.beginPath();
+    // Rows are revealed in a shimmering order, bottom to top, rather than one clean edge.
+    for (let row = 0; row < height; row += 1) {
+      const order = ((row * 11) % 30) / 30; // rows flicker in and out in a scattered order
+      const shimmer = (row * 7 + Math.floor(time / 60)) % 5 === 0 && visible < 0.95;
+      const lit = order < visible && !shimmer;
+      if (lit) context.rect(seat.x - 9, top + row, 18, 1);
+    }
+    context.clip();
+    paintPerson();
+    context.restore();
+    const envelope = Math.sin(Math.PI * progress);
+    context.globalAlpha = 0.12 + 0.28 * envelope;
+    box(seat.x - 8, top - 4, 16, height + 6, '#9fe8ff');
+    context.globalAlpha = 0.35 * envelope;
+    box(seat.x - 3, top - 8, 6, height + 12, '#ffffff');
+    context.globalAlpha = 1;
+    const colours = ['#e8fbff', '#ffe9a8', '#ffffff', '#7fd8ff'];
+    for (let spark = 0; spark < 22; spark += 1) {
+      const sparkX = seat.x - 8 + ((spark * 7 + Math.floor(time / 80) * 3) % 17);
+      const sparkY = top - 4 + ((spark * 11 + Math.floor(time / 55) * 5) % (height + 6));
+      if (spark % 3 === 0 && envelope < 0.15) continue;
+      box(sparkX, sparkY, 1, spark % 4 === 0 ? 2 : 1, colours[spark % colours.length]);
+    }
   }
 
   /** A monitor seen from behind, on a stand. (x, y) is its top-left corner. */
@@ -353,6 +417,12 @@ export function createScene(canvas) {
     const stride = moving && frame % 2 ? 1 : 0;
     box(x - 3 + stride, y - 1, 2, 1, dark); // feet
     box(x + 1 - stride, y - 1, 2, 1, dark);
+    if (claude.state === 'mop') {
+      const sway = Math.round(Math.sin(time / 180) * 4);
+      box(x + 5 + sway / 2, y - 12, 1, 11, '#8a5a34'); // handle
+      box(x + 3 + sway, y - 2, 7, 2, '#e9e6dd'); // mop head
+      box(x + 3 + sway, y, 7, 1, '#c9c5b8');
+    }
     drawHeart(claude, time);
   }
 
@@ -371,17 +441,17 @@ export function createScene(canvas) {
   function draw(time) {
     const frame = reducedMotion ? 0 : Math.floor(time / 340);
     drawRoom(time, frame);
+    drawSpill(time);
     const items = [];
     for (const [id, seat] of Object.entries(SEATS)) {
       const agent = agents[id];
       if (VISITORS.includes(id) && !agent) continue; // this office has no such visitor: no desk either
       const working = agent?.status === 'working';
-      const away = VISITORS.includes(id) && (agent?.status || 'idle') === 'idle';
+      const beam = beams.find((candidate) => candidate.id === id);
+      const away = VISITORS.includes(id) && (agent?.status || 'idle') === 'idle' && !beam;
       if (!walkers.has(id) && !away) {
-        items.push({
-          y: seat.y,
-          paint: () => drawPerson(seat.x, seat.y, LOOKS[id], { typing: working, frame, alert: agent?.status === 'waiting' }),
-        });
+        const paintPerson = () => drawPerson(seat.x, seat.y, LOOKS[id], { typing: working, frame, alert: agent?.status === 'waiting' });
+        items.push({ y: seat.y, paint: beam ? () => drawBeam(beam, seat, time, paintPerson) : paintPerson });
       }
       items.push({ y: seat.y + 1, paint: () => drawDesk(id, seat, working, time, frame) });
     }
@@ -510,6 +580,11 @@ export function createScene(canvas) {
       reached?.arrive?.(walker, time);
     }
     for (const pet of pets) stepPet(pet, time, delta);
+    for (let index = beams.length - 1; index >= 0; index -= 1) if (time - beams[index].start >= BEAM_TIME) beams.splice(index, 1);
+    if (spill) {
+      if (!spill.mopStart && claude.state === 'mop') spill.mopStart = time;
+      if (spill.mopStart && time - spill.mopStart >= MOP_TIME) spill = null;
+    }
     for (const piece of confetti) {
       piece.y += piece.fall * delta;
       piece.x += Math.sin(time / 300 + piece.sway) * 12 * delta;
@@ -540,7 +615,8 @@ export function createScene(canvas) {
     const spot = ballPosition(performance.now());
     const overBall = Math.abs(x - spot.x) <= 6 && Math.abs(y - (spot.y - 3 - spot.height)) <= 6;
     const overPet = pets.some((candidate) => Math.abs(x - candidate.x) <= 11 && Math.abs(y - (candidate.y - 6)) <= 10);
-    canvas.style.cursor = overBall || overPet ? 'pointer' : '';
+    const overCooler = x >= 357 && x <= 375 && y >= 28 && y <= 58;
+    canvas.style.cursor = overBall || overPet || overCooler ? 'pointer' : '';
   });
 
   // Click the ball to throw it for the dog, or click a pet to give it a pat.
@@ -555,6 +631,10 @@ export function createScene(canvas) {
       return;
     }
     const pet = pets.find((candidate) => Math.abs(x - candidate.x) <= 11 && Math.abs(y - (candidate.y - 6)) <= 10);
+    if (!pet && x >= 357 && x <= 375 && y >= 28 && y <= 58) {
+      spillWater(now);
+      return;
+    }
     if (!pet) return;
     pet.lovedUntil = now + 1500;
     if (pet.state === 'sleep' && !reducedMotion) {
@@ -563,17 +643,26 @@ export function createScene(canvas) {
     }
   });
 
+  /** Click the cooler: water goes everywhere, and the Claude spark fetches a mop. */
+  function spillWater(now) {
+    if (reducedMotion || spill) return;
+    spill = { at: now, mopStart: 0 };
+    claude.fetching = true; // hurries over instead of strolling
+    sendPet(claude, MOP_SPOT, 'mop', MOP_TIME + 300);
+  }
+
   return {
     update(nextAgents) {
       const present = (list, id) => (list[id]?.status || 'idle') !== 'idle';
       for (const id of VISITORS) {
-        const home = standSpot(id);
         const wasHere = present(agents, id);
         const isHere = present(nextAgents, id);
         if (reducedMotion || wasHere === isHere) continue;
-        // A visitor walks in when their work starts and out again when it ends.
-        if (isHere) walkers.set(id, { ...ENTRANCE, pauseUntil: 0, mug: false, points: [{ x: home.x, y: CORRIDOR }, home] });
-        else walkers.set(id, { ...home, pauseUntil: 0, mug: false, points: [{ x: home.x, y: CORRIDOR }, ENTRANCE] });
+        // A visitor beams in when their work starts and out again when it ends (not on the first snapshot).
+        if (!Object.keys(agents).length) continue;
+        const existing = beams.findIndex((beam) => beam.id === id);
+        if (existing >= 0) beams.splice(existing, 1);
+        beams.push({ id, mode: isHere ? 'in' : 'out', start: performance.now() });
       }
       agents = nextAgents;
     },
