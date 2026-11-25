@@ -369,37 +369,56 @@ export function createScene(canvas) {
     sendPet(dog, spot, 'sit', 9000);
   }
 
+  /** The office dog: a Romanian Mioritic Shepherd, big and shaggy, cream with grey shading, a fringe over its eyes and a bushy tail. */
   function drawDog(time, frame) {
     const { x, y, facing } = dog;
-    const coat = '#b9783f';
-    const dark = '#8a5527';
+    const fur = '#ece4d2';
+    const shade = '#cbbfa6';
+    const grey = '#9a917f';
+    const ink = '#1d1d24';
+    // Draws a piece relative to where the dog is looking: offset counts forward, top counts up from the ground.
+    const part = (offset, top, width, height, colour) => box(facing > 0 ? x + offset : x - offset - width + 1, y + top, width, height, colour);
     if (dog.state === 'sleep') {
-      box(x - 6, y - 5, 12, 5, coat); // curled up
-      box(x - 8, y - 5, 4, 4, coat);
-      box(x - 8, y - 6, 2, 2, dark);
-      box(x + 5, y - 3, 3, 2, dark); // tail tucked round
+      part(-7, -6, 14, 6, fur); // curled up, a big shaggy heap
+      part(-7, -1, 14, 1, shade);
+      part(-4, -6, 4, 2, shade);
+      part(2, -4, 4, 2, shade);
+      part(-9, -6, 5, 5, fur); // head tucked in
+      part(-9, -6, 5, 1, shade);
+      part(-9, -5, 2, 3, grey); // ear
+      part(-10, -3, 1, 1, ink); // nose
+      part(5, -4, 4, 3, fur); // tail wrapped round
+      part(7, -4, 2, 1, shade);
       const drift = frame % 6;
-      box(x - 9 - (drift % 2), y - 9 - drift, 2, 1, '#ffffff'); // z z z
-      box(x - 12 + (drift % 2), y - 13 - drift, 3, 1, '#ffffff');
+      box(x - 9 - (drift % 2), y - 10 - drift, 2, 1, '#ffffff'); // z z z
+      box(x - 12 + (drift % 2), y - 14 - drift, 3, 1, '#ffffff');
     } else {
       const moving = dog.state === 'walk';
       const happy = dog.state === 'sit' || time < dog.lovedUntil;
-      const sit = dog.state === 'sit' ? 1 : 0;
-      const head = facing > 0 ? x + 3 : x - 8;
-      const rear = facing > 0 ? x - 7 : x + 5;
-      box(x - 5, y - 7 + sit, 10, 5 - sit, coat); // body
-      box(x - 1, y - 7 + sit, 3, 5 - sit, '#d9a066'); // lighter patch
-      box(head, y - 11, 5, 5, coat);
-      box(facing > 0 ? head : head + 3, y - 12, 2, 3, dark); // ear
-      box(facing > 0 ? head + 4 : head, y - 8, 1, 1, '#1d1d24'); // nose
-      box(facing > 0 ? head + 3 : head + 1, y - 10, 1, 1, '#1d1d24'); // eye
-      box(facing > 0 ? head : head + 4, y - 6, 1, 1, '#c0392b'); // collar
-      box(rear, y - 9 + (happy && frame % 2 ? 1 : 0), 2, 3, dark); // tail
+      const sit = dog.state === 'sit' ? 2 : 0;
       const stride = moving && frame % 2 ? 1 : 0;
-      box(x - 4, y - 2, 1, 2 - stride, dark);
-      box(x - 2, y - 2, 1, 1 + stride, dark);
-      box(x + 2, y - 2, 1, 2 - stride, dark);
-      box(x + 4, y - 2, 1, 1 + stride, dark);
+      part(-6, -3 + sit, 2, 3 - sit - stride, shade); // legs
+      part(-3, -3 + sit, 2, 2 - sit + stride, shade);
+      part(1, -3 + sit, 2, 3 - sit - stride, shade);
+      part(4, -3 + sit, 2, 2 - sit + stride, shade);
+      part(-7, -10 + sit, 12, 7 - sit, fur); // body
+      part(-5, -10 + sit, 7, 2, shade); // grey-fawn saddle
+      part(-7, -4 + sit, 12, 1, shade); // shaggy skirt
+      part(-6, -3 + sit, 1, 1, shade);
+      part(-1, -3 + sit, 1, 1, shade);
+      part(3, -3 + sit, 1, 1, shade);
+      part(4, -14 + sit, 7, 7, fur); // head
+      part(4, -14 + sit, 7, 2, shade); // fringe
+      part(6, -12 + sit, 5, 2, shade);
+      part(4, -13 + sit, 2, 6, grey); // floppy ear
+      part(9, -10 + sit, 1, 1, ink); // eye, peeking under the fringe
+      part(10, -9 + sit, 2, 3, fur); // muzzle
+      part(11, -9 + sit, 1, 1, ink); // nose
+      part(8, -7 + sit, 4, 2, shade); // beard
+      part(3, -8 + sit, 1, 2, '#c0392b'); // collar
+      const wag = happy && frame % 2 ? 1 : 0;
+      part(-10, -13 + sit + wag, 3, 6, fur); // bushy tail
+      part(-10, -13 + sit + wag, 2, 2, shade);
     }
     drawHeart(dog, time);
   }
