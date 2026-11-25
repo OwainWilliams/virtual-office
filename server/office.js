@@ -45,6 +45,7 @@ class Agent {
     this.name = definition.name;
     this.role = definition.role;
     this.defaultModel = definition.model; // their usual model
+    this.plugins = definition.plugins || []; // folders of local plugins loaded for this agent only
     this.model = definition.model; // the model for the current task: the manager can change it per task
     this.status = 'idle'; // idle | working | waiting
     this.task = null;
@@ -165,6 +166,7 @@ class Agent {
       canUseTool: async (_toolName, input) => ({ behavior: 'allow', updatedInput: input }),
       abortController: this.abort,
       resume: resume || undefined,
+      ...(this.plugins.length ? { plugins: this.plugins.map((folder) => ({ type: 'local', path: folder })) } : {}),
     };
   }
 
@@ -580,6 +582,84 @@ today, what is still in progress and where it stands, what is waiting on the own
       if (/not working/.test(reply)) this.say('system', reply);
     }
     return true;
+  }
+
+  /**
+   * A message from the owner straight to one agent, from the box in their log. The manager is not
+   * involved. "/clear", "/model", "/stop" and "/help" are handled here; any other "/command"
+   * (such as /compact, or a skill's name) goes to the agent's own session, which runs it.
+   * Anything else is a normal message, sent into the agent's existing conversation.
+   */
+  directMessage(id, text) {
+    const agent = this.agents[id];
+    const reply = (line) => agent.note('office', line);
+    if (!agent) return;
+    const command = /^\/(\S+)\s*(.*)$/s.exec(text);
+    const name = command?.[1].toLowerCase();
+    const rest = command?.[2].trim() || '';
+    agent.note('you', text);
+
+    if (name === 'help') {
+      reply('Type a message to talk to ' + agent.name + ' directly. Commands: /clear forgets their conversation, /model <name> changes their usual model, /stop stops them, /plugins lists the plugins loaded just for them. Any other /command (for example /compact, or a skill) is passed to their session.');
+      return;
+    }
+    if (name === 'stop') {
+      reply(this.stopAgent(id, 'owner'));
+      return;
+    }
+    if (name === 'plugins') {
+      reply(agent.plugins.length ? 'Plugins loaded only for ' + agent.name + ': ' + agent.plugins.join(', ') : 'No plugins are loaded just for ' + agent.name + '. Add folders to "plugins" for this agent in config.local.json, then restart the office.');
+      return;
+    }
+    if (agent.status !== 'idle') {
+      reply(agent.name + ' is busy with "' + agent.task + '". Use /stop first, or wait.');
+      return;
+    }
+    if (name === 'clear') {
+      agent.sessionId = null;
+      agent.sessionPath = null;
+      this.save();
+      reply('Conversation cleared. ' + agent.name + ' starts fresh next time.');
+      return;
+    }
+    if (name === 'model') {
+      const chosen = findModel(this.config, rest);
+      if (!chosen) {
+        reply('Choose one of: ' + modelList(this.config).map((entry) => entry.id).join(', ') + '.');
+        return;
+      }
+      agent.set({ defaultModel: chosen.id, model: chosen.id });
+      reply(agent.name + ' now uses ' + modelLabel(this.config, chosen.id) + ' until the office restarts. Set it in config.local.json to keep it.');
+      return;
+    }
+    if (id === 'manager' && !command) {
+      reply('Talk to the manager in the main chat. Here you can use /clear, /model and /help.');
+      return;
+    }
+    if (id === 'manager') {
+      reply('Only /clear, /model and /help work for the manager.');
+      return;
+    }
+    // A real message: run it in the agent's conversation, where they last worked if that folder is still there.
+    const folder = fs.existsSync(agent.place.path) ? agent.place : { branch: null, path: this.project.path };
+    const isDeveloper = (agentId) => agentId === 'senior' || agentId === 'junior';
+    const clash = Object.values(this.agents).find(
+      (other) =>
+        other.id !== id && other.id !== 'manager' && other.id !== 'pm' && other.status !== 'idle' &&
+        other.place.branch === folder.branch && id !== 'pm' && (isDeveloper(id) || isDeveloper(other.id)),
+    );
+    if (clash) {
+      reply(clash.name + ' is working in the same folder. Wait until they finish, then try again.');
+      return;
+    }
+    agent.place = folder;
+    agent.set({ status: 'working', task: 'Your message', activity: 'Reading your message', mood: null });
+    this.inbox.push({ from: 'office', text: '[Office note] ' + this.config.ownerName + ' sent ' + agent.name + ' a direct message. No report will come to you.' });
+    agent.run(text, { fresh: false }).then((answer) => {
+      const last = [...agent.log].reverse().find((entry) => entry.kind === 'says');
+      if (answer && last?.text !== answer.trim()) agent.note('report', answer);
+      agent.set({ status: 'idle', task: null, activity: '', model: agent.defaultModel });
+    });
   }
 
   /** Declines the approvals that are waiting, for one agent or for everyone. */

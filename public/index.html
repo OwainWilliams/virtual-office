@@ -112,6 +112,10 @@
   .entry.task { border-color: var(--accent); }
   .entry.report { border-color: var(--working); }
   .entry.error { border-color: var(--danger); }
+  .entry.you { border-color: var(--accent); font-weight: 600; }
+  .entry.office { color: var(--muted); font-style: italic; }
+  .direct { display: flex; gap: 8px; position: sticky; bottom: 0; padding-top: 10px; background: var(--panel, inherit); }
+  .direct input { flex: 1; min-width: 0; background: var(--raised); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font: inherit; }
 
   @media (max-width: 900px) {
     body { height: auto; }
@@ -163,6 +167,10 @@
     <button class="button" type="button" id="drawer-close">Close</button>
   </header>
   <div id="log"></div>
+  <form id="direct-form" class="direct">
+    <input id="direct-input" autocomplete="off" maxlength="4000" aria-label="Message this agent directly">
+    <button class="button primary" type="submit">Send</button>
+  </form>
 </dialog>
 <dialog id="board-dialog" aria-labelledby="board-title">
   <header>

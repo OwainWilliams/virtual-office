@@ -124,6 +124,7 @@ sockets.on('connection', (socket) => {
     if (!office && !['addProject'].includes(message.type)) return notice('Add your first project to open the office.');
     if (message.type === 'chat' && text) office.ownerMessage(text);
     if (message.type === 'answer' && text && field('id', 64)) office.ownerAnswer(field('id', 64), text);
+    if (message.type === 'direct' && text && field('id', 64)) office.directMessage(field('id', 64), text);
     if (message.type === 'stop') office.stopAll();
     if (message.type === 'stopAgent' && field('id', 64)) office.stopAgent(field('id', 64));
     if (message.type === 'routine' && ['standup', 'endOfDay'].includes(message.kind)) office.routine(message.kind);

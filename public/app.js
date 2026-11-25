@@ -342,7 +342,7 @@ byId('project-form').addEventListener('submit', (event) => {
 
 function logEntry(entry) {
   const node = element('div', `entry ${entry.kind}`);
-  const label = { task: 'Task: ', report: 'Report: ', does: '', says: '', error: 'Problem: ' }[entry.kind] || '';
+  const label = { task: 'Task: ', report: 'Report: ', does: '', says: '', error: 'Problem: ', you: 'You: ', office: 'Office: ' }[entry.kind] || '';
   node.append(element('time', '', clock(entry.at)), `${label}${entry.text}`);
   return node;
 }
@@ -365,11 +365,19 @@ function showStop() {
   const agent = state.agents[openLog];
   const button = byId('drawer-stop');
   button.hidden = !agent || agent.status === 'idle';
+  if (agent) byId('direct-input').placeholder = `Message ${agent.name} directly (/help for commands)`;
   if (agent) button.textContent = `Stop ${agent.name}`;
 }
 byId('drawer-stop').addEventListener('click', () => {
   const agent = state.agents[openLog];
   if (agent && confirm(`Stop ${agent.name} now? Their task is abandoned where it stands.`)) send({ type: 'stopAgent', id: agent.id });
+});
+byId('direct-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const input = byId('direct-input');
+  if (!openLog || !input.value.trim()) return;
+  send({ type: 'direct', id: openLog, text: input.value });
+  input.value = '';
 });
 byId('drawer-close').addEventListener('click', () => byId('drawer').close());
 byId('drawer').addEventListener('close', () => (openLog = null));

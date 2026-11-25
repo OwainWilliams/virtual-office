@@ -69,6 +69,33 @@ The floor also has an office dog and a pet Claude spark that wander about, and i
 fetch a coffee from the kitchen now and then. Click either pet to give it a pat. These are
 decoration only and are switched off when your system asks for reduced motion.
 
+## Talking to one agent directly
+
+Click an agent's name tag to open their log. The box at the bottom sends them a message
+without going through the manager. They answer in the log, and the manager gets a short note
+that you spoke to them.
+
+| Type | What happens |
+|---|---|
+| a normal message | Goes into that agent's existing conversation. They must be idle. |
+| `/clear` | Forgets their conversation, so their next task starts fresh |
+| `/model sonnet` | Changes their usual model until the office restarts |
+| `/stop` | Stops them, the same as the Stop button |
+| `/plugins` | Lists the plugins loaded just for them |
+| `/help` | Lists these commands |
+| any other `/command` | Passed to their own Claude Code session, so `/compact` or a skill's name work |
+
+For the manager only `/clear`, `/model` and `/help` apply; talk to them in the main chat.
+
+**Plugins and skills for one agent.** List plugin folders under that agent in
+`config.local.json` and restart the office:
+
+```json
+{ "agents": { "qa": { "plugins": ["C:\\plugins\\accessibility-checker"] } } }
+```
+
+Those plugins (and their skills) load for that agent only. Skills in your own Claude Code
+settings or in the project's `.claude` folder are shared by everyone.
 ## Daily routines
 
 - **Stand-up** (header button): the project manager triages the board, the team gathers at
