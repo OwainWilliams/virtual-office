@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Local office data: chats, agent logs, session ids, project list
+data/
+
+# Secrets and local environment
+.env
+.env.*
+
+# Logs and editor or system files
+*.log
+.vs/
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# One person's own settings (names, projects, Jira site)
+config.local.json

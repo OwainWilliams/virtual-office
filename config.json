@@ -1,0 +1,83 @@
+{
+  "port": 4700,
+  "officeName": "Virtual Office",
+  "ownerName": "Boss",
+  "jiraSite": "",
+  "models": [
+    {
+      "id": "haiku",
+      "label": "Haiku",
+      "use": "routine, mechanical work: copy changes, renames, small well-defined fixes"
+    },
+    {
+      "id": "sonnet",
+      "label": "Sonnet",
+      "use": "everyday work: most testing, reviews, triage and ordinary features"
+    },
+    {
+      "id": "opus",
+      "label": "Opus",
+      "use": "hard problems: design, tricky bugs, risky changes to shared code"
+    },
+    {
+      "id": "claude-fable-5-2",
+      "label": "Fable",
+      "use": "the hardest work only: a problem that has already beaten Opus, deep architecture, subtle bugs across many files"
+    }
+  ],
+  "routines": {
+    "standupTime": "",
+    "endOfDayTime": ""
+  },
+  "projects": [],
+  "agents": {
+    "manager": {
+      "name": "Claudette",
+      "role": "Office Manager",
+      "model": "opus"
+    },
+    "senior": {
+      "name": "Claudius",
+      "role": "Senior Developer",
+      "model": "opus"
+    },
+    "junior": {
+      "name": "Claudio",
+      "role": "Junior Developer",
+      "model": "haiku"
+    },
+    "qa": {
+      "name": "Claudia",
+      "role": "QA",
+      "model": "sonnet"
+    },
+    "pm": {
+      "name": "Claudine",
+      "role": "Project Manager",
+      "model": "sonnet"
+    },
+    "reviewer": {
+      "name": "Claudel",
+      "role": "Contractor",
+      "model": "opus"
+    }
+  },
+  "needsOwnerApproval": [
+    "git\\s+push",
+    "gh\\s+pr\\s+(create|merge|close)",
+    "gh\\s+release",
+    "git\\s+merge\\s+",
+    "git\\s+branch\\s+-D",
+    "(delete|remove).*(jira|issue|confluence)",
+    "slack_send|slack_schedule"
+  ],
+  "alwaysBlocked": [
+    "git\\s+push\\s+.*(--force|-f\\b)",
+    "git\\s+reset\\s+--hard",
+    "git\\s+clean\\s+-",
+    "rm\\s+-rf?\\s",
+    "Remove-Item\\b.*-Recurse",
+    "DROP\\s+(DATABASE|TABLE)",
+    "az\\s+(webapp|deployment|group)"
+  ]
+}
