@@ -60,6 +60,8 @@ function addProject(name, folder, jiraKey) {
 
 const app = express();
 app.use(express.static(path.join(root, 'public')));
+// Browsers ask for /favicon.ico on their own; answer with the same icon.
+app.get('/favicon.ico', (_request, response) => response.type('image/svg+xml').sendFile(path.join(root, 'public', 'favicon.svg')));
 const server = http.createServer(app);
 
 // Only pages served by this app may open the socket: it can direct agents on this machine.
