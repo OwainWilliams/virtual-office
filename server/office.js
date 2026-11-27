@@ -46,6 +46,8 @@ class Agent {
     this.role = definition.role;
     this.defaultModel = definition.model; // their usual model
     this.plugins = definition.plugins || []; // folders of local plugins loaded for this agent only
+    this.adopted = false; // true while a Claude Code session that was moved in is at the guest desk
+    this.forkNext = false; // the first turn after a move copies the conversation instead of continuing it
     this.model = definition.model; // the model for the current task: the manager can change it per task
     this.status = 'idle'; // idle | working | waiting
     this.task = null;
@@ -67,6 +69,7 @@ class Agent {
     const today = this.office.tokensToday(id);
     return {
       id, name, role, model, defaultModel, status, task, activity, tokens, mood,
+      adopted: this.adopted,
       modelLabel: modelLabel(config, model),
       tokensToday: today.total,
       modelsToday: today.byModel,
@@ -166,6 +169,7 @@ class Agent {
       canUseTool: async (_toolName, input) => ({ behavior: 'allow', updatedInput: input }),
       abortController: this.abort,
       resume: resume || undefined,
+      ...(this.forkNext && resume ? { forkSession: true } : {}),
       ...(this.plugins.length ? { plugins: this.plugins.map((folder) => ({ type: 'local', path: folder })) } : {}),
     };
   }
@@ -251,6 +255,7 @@ class Agent {
         if (this.abort?.signal.aborted) return;
         if (message.type === 'system' && message.subtype === 'init') {
           this.sessionId = message.session_id;
+          this.forkNext = false; // from here on the office has its own copy
           this.office.save();
         } else if (message.type === 'assistant') {
           if (message.error) this.lastError = message.error;
@@ -443,6 +448,8 @@ today, what is still in progress and where it stands, what is waiting on the own
         this.agents[id].sessionId = stored.sessionId || null;
         this.agents[id].sessionPath = stored.sessionPath || null;
         this.agents[id].tokens = stored.tokens || 0;
+        this.agents[id].adopted = Boolean(stored.adopted);
+        if (stored.adopted && stored.place?.path && fs.existsSync(stored.place.path)) this.agents[id].place = stored.place;
         this.agents[id].log = stored.log || [];
       }
       this.usageByDay = saved.usageByDay || {}; // older saves held dollar costs, which are no longer kept
@@ -462,7 +469,10 @@ today, what is still in progress and where it stands, what is waiting on the own
   writeState() {
     const agents = {};
     for (const agent of Object.values(this.agents)) {
-      agents[agent.id] = { sessionId: agent.sessionId, sessionPath: agent.sessionPath, tokens: agent.tokens, log: agent.log };
+      agents[agent.id] = {
+        sessionId: agent.sessionId, sessionPath: agent.sessionPath, tokens: agent.tokens, log: agent.log,
+        adopted: agent.adopted, place: agent.adopted ? agent.place : undefined,
+      };
     }
     fs.mkdirSync(path.dirname(this.stateFile), { recursive: true });
     const { chat, questions, usageByDay, board, backlog, lastRoutine } = this;
@@ -616,6 +626,13 @@ today, what is still in progress and where it stands, what is waiting on the own
       reply(agent.name + ' is busy with "' + agent.task + '". Use /stop first, or wait.');
       return;
     }
+    if (name === 'leave' && id === 'guest') {
+      const resume = agent.sessionId ? ' To carry on in Claude Code: claude --resume ' + agent.sessionId : '';
+      agent.set({ adopted: false });
+      reply(agent.name + ' has gone home.' + resume);
+      this.say('system', agent.name + ' has left the office.');
+      return;
+    }
     if (name === 'clear') {
       agent.sessionId = null;
       agent.sessionPath = null;
@@ -659,8 +676,51 @@ today, what is still in progress and where it stands, what is waiting on the own
     agent.run(text, { fresh: false }).then((answer) => {
       const last = [...agent.log].reverse().find((entry) => entry.kind === 'says');
       if (answer && last?.text !== answer.trim()) agent.note('report', answer);
+      if (id === 'guest' && answer && !agent.abort?.signal.aborted) this.say('report', answer, { agent: id, title: 'Your message' });
       agent.set({ status: 'idle', task: null, activity: '', model: agent.defaultModel });
     });
+  }
+
+  /**
+   * Moves a Claude Code session into the office as the guest. The conversation is copied (forked) on the first
+   * turn, so the one in the terminal is left alone and the two never write to the same file.
+   */
+  adopt({ sessionId, cwd, model, message } = {}) {
+    const guest = this.agents.guest;
+    if (!guest) return { ok: false, error: 'This office has no guest desk. Add an "agents.guest" entry to the config.' };
+    if (!/^[0-9a-f-]{36}$/i.test(String(sessionId || ''))) return { ok: false, error: 'That is not a Claude Code session id.' };
+    if (guest.status !== 'idle') return { ok: false, error: guest.name + ' is busy. Wait, or stop them first.' };
+    const inside = (child, parent) => {
+      const keep = (value) => (process.platform === 'linux' ? value : value.toLowerCase());
+      const relative = path.relative(keep(path.resolve(parent)), keep(path.resolve(child)));
+      return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+    };
+    const folder = path.resolve(String(cwd || ''));
+    if (!path.isAbsolute(String(cwd || '')) || !fs.existsSync(folder) || !inside(folder, this.project.path)) {
+      return { ok: false, error: "That folder is not inside this office's project (" + this.project.path + '). Run it from the project, or switch project in the office first.' };
+    }
+    let chosen = { id: guest.defaultModel };
+    if (model) {
+      chosen = findModel(this.config, model);
+      if (!chosen) return { ok: false, error: '"' + model + '" is not an allowed model. Choose one of: ' + modelList(this.config).map((entry) => entry.id).join(', ') + '.' };
+    }
+    // A folder that is a worktree gets its branch shown; the main checkout counts as no branch, as for the staff.
+    let branch = null;
+    try {
+      const git = (...args) => execFileSync('git', ['-C', folder, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+      if (!inside(this.project.path, git('rev-parse', '--show-toplevel')) || !inside(git('rev-parse', '--show-toplevel'), this.project.path)) branch = git('rev-parse', '--abbrev-ref', 'HEAD');
+    } catch {
+      branch = null;
+    }
+    guest.sessionId = sessionId;
+    guest.sessionPath = folder;
+    guest.forkNext = true;
+    guest.place = { branch, path: folder };
+    guest.set({ adopted: true, model: chosen.id, defaultModel: chosen.id, task: null, activity: '', mood: null });
+    guest.note('office', 'Moved in from Claude Code (session ' + sessionId + ', ' + folder + '). The conversation was copied, so the one in your terminal is untouched. To go back: /leave, then claude --resume ' + sessionId + ' in that folder.');
+    this.say('system', guest.name + ' has joined from Claude Code' + (branch ? ' (branch ' + branch + ')' : '') + '. Click their name tag to talk to them.');
+    if (message) this.directMessage('guest', String(message).slice(0, 4000));
+    return { ok: true, name: guest.name, branch, folder };
   }
 
   /** Declines the approvals that are waiting, for one agent or for everyone. */

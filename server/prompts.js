@@ -29,6 +29,15 @@ approves them; a refusal is final, so report it rather than working around it.`;
 
 export function staffPrompt(id, config, project, place) {
   const me = config.agents[id];
+  if (id === 'guest') {
+    return `
+You are ${me.name}, a guest in ${config.ownerName}'s virtual office. This conversation began in Claude Code and
+was moved here, so carry on with what you were doing. Unlike the office staff you talk to ${config.ownerName}
+directly: they read your replies in your log and in the chat, and message you from your name tag.
+The project is "${project.name}" (main checkout: ${project.path}); you are working in ${place.path}.
+Follow the repository's own CLAUDE.md and rules. Some actions (pushing, opening or merging pull requests,
+deleting things) pause until ${config.ownerName} approves them; a refusal is final, so say so rather than working around it.`;
+  }
   const manager = config.agents.manager;
   const where = place.branch
     ? `For this task you are in a git worktree of the project on branch "${place.branch}" (${place.path}).

@@ -12,8 +12,11 @@ export const SEATS = {
   junior: { x: 210, y: 186 },
   qa: { x: 310, y: 186 },
   reviewer: { x: 256, y: 62 }, // the hot desk: the contractor is only there while reviewing
+  guest: { x: 372, y: 96 }, // a Claude Code session that was moved into the office sits here
 };
-const VISITORS = ['reviewer'];
+const VISITORS = ['reviewer', 'guest'];
+// The contractor is in while reviewing; the guest is in while a moved session is adopted.
+const inOffice = (agent, id) => (id === 'guest' ? Boolean(agent?.adopted) : (agent?.status || 'idle') !== 'idle');
 
 /**
  * Sunrise and sunset as local decimal hours, for a date and a latitude. The zone's own meridian stands in
@@ -66,6 +69,7 @@ const LOOKS = {
   qa: { shirt: '#d07a2f', hair: '#2a1c14', skin: '#8d5a3b' },
   pm: { shirt: '#c93f6b', hair: '#e6c15a', skin: '#e8b98f' },
   reviewer: { shirt: '#5b6470', hair: '#5a3d2b', skin: '#d9a57c' },
+  guest: { shirt: '#2ba7b5', hair: '#7a3b1d', skin: '#d9a57c' },
 };
 
 // The kitchen sits under the owner's office wall, bottom-left of the floor.
@@ -119,7 +123,7 @@ export function createScene(canvas) {
   // Where a throw can land: open floor, clear of the desks and of the name tags, which would take the click.
   const BALL_SPOTS = [
     { x: 150, y: 148 }, { x: 250, y: 148 }, { x: 336, y: 150 }, { x: 170, y: 170 }, { x: 262, y: 168 },
-    { x: 60, y: 156 }, { x: 100, y: 102 }, { x: 300, y: 120 }, { x: 388, y: 122 }, { x: 386, y: 238 },
+    { x: 60, y: 156 }, { x: 100, y: 102 }, { x: 300, y: 120 }, { x: 330, y: 132 }, { x: 386, y: 238 },
   ];
   const ball = { x: 386, y: 238, fromX: 386, fromY: 238, thrownAt: -BALL_FLIGHT };
   // The water cooler: click it and it spills; the Claude spark comes to mop it up.
@@ -496,7 +500,8 @@ export function createScene(canvas) {
       if (VISITORS.includes(id) && !agent) continue; // this office has no such visitor: no desk either
       const working = agent?.status === 'working';
       const beam = beams.find((candidate) => candidate.id === id);
-      const away = VISITORS.includes(id) && (agent?.status || 'idle') === 'idle' && !beam && !(id === 'reviewer' && guestUntil);
+      const away = VISITORS.includes(id) && !inOffice(agent, id) && !beam && !(id === 'reviewer' && guestUntil);
+      if (id === 'guest' && away) continue; // nobody is sitting here, so no desk either
       if (!walkers.has(id) && !away) {
         const paintPerson = () => drawPerson(seat.x, seat.y, LOOKS[id], { typing: working, frame, alert: agent?.status === 'waiting' });
         items.push({ y: seat.y, paint: beam ? () => drawBeam(beam, seat, time, paintPerson) : paintPerson });
@@ -722,12 +727,12 @@ export function createScene(canvas) {
       if (Number.isFinite(value)) latitude = Math.max(-66, Math.min(66, value));
     },
     update(nextAgents) {
-      const present = (list, id) => (list[id]?.status || 'idle') !== 'idle';
+      const present = (list, id) => inOffice(list[id], id);
       for (const id of VISITORS) {
         const wasHere = present(agents, id);
         const isHere = present(nextAgents, id);
         if (reducedMotion || wasHere === isHere) continue;
-        if (isHere && guestUntil) {
+        if (id === 'reviewer' && isHere && guestUntil) {
           guestUntil = 0; // a real review starts while the guest is in: they simply stay
           continue;
         }

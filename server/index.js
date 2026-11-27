@@ -1,6 +1,7 @@
 import express from 'express';
 import http from 'node:http';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
@@ -60,6 +61,31 @@ function addProject(name, folder, jiraKey) {
 
 const app = express();
 app.use(express.static(path.join(root, 'public')));
+// A Claude Code session can ask to be moved into the office (scripts/adopt.mjs). The request must carry this
+// token, which lives in the data folder and so is readable only by you, and it must not come from a web page.
+const tokenFile = path.join(dataDirectory, 'adopt-token');
+let adoptToken = '';
+try {
+  adoptToken = fs.readFileSync(tokenFile, 'utf8').trim();
+} catch {
+  // first run: make one below
+}
+if (!adoptToken) {
+  adoptToken = crypto.randomBytes(24).toString('hex');
+  fs.mkdirSync(dataDirectory, { recursive: true });
+  fs.writeFileSync(tokenFile, adoptToken, { mode: 0o600 });
+}
+app.post('/adopt', express.json({ limit: '10kb' }), (request, response) => {
+  const given = Buffer.from(String(request.get('x-office-token') || ''));
+  const expected = Buffer.from(adoptToken);
+  if (request.get('origin') || given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) {
+    return response.status(403).json({ ok: false, error: 'Not allowed.' });
+  }
+  if (!office) return response.status(400).json({ ok: false, error: 'Add your first project in the office before moving a session in.' });
+  const result = office.adopt(request.body || {});
+  return response.status(result.ok ? 200 : 400).json(result);
+});
+
 // Browsers ask for /favicon.ico on their own; answer with the same icon.
 app.get('/favicon.ico', (_request, response) => response.type('image/svg+xml').sendFile(path.join(root, 'public', 'favicon.svg')));
 const server = http.createServer(app);

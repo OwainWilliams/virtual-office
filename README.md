@@ -127,6 +127,33 @@ Click the board behind the project manager to see the count per column.
 
 Each person has a colour (the shirt colour you see on the floor) and a small face. In the chat, your messages and Claudette's carry that colour and face, and when someone reports back to Claudette a report card appears with their face, name, role, the task title and the first line of the report. Click it to read the rest. Agent names in Claudette's messages are coloured too.
 
+## Moving a Claude Code session into the office
+
+Start a task in Claude Code as normal, then hand it to the office. The conversation is **copied**, so the
+session in your terminal is left alone, and a guest called Claudiu (config `agents.guest`) sits down at the
+extra desk on the right and carries on with it.
+
+With the office running, run this from the project folder (or one of its worktrees):
+
+```
+node path\to\virtual-office\scripts\adopt.mjs
+```
+
+It moves in the newest session for that folder, which is the one you are in. Options: `--session <id>` for a
+particular session, `--model sonnet`, `--message "..."` for what to tell them first (by default they say where
+they got to and carry on), and `--no-message` to move them in and say nothing.
+
+To do it from inside Claude Code as `/office`, copy `scripts/office-command.md` to
+`~/.claude/commands/office.md` and put the path to this folder where it says `REPLACE_WITH_PATH_TO_VIRTUAL_OFFICE`.
+
+Once Claudiu is in:
+
+- Click their name tag to read their log and message them directly. Their replies also appear in the chat as
+  report cards. Unlike the staff, they talk to you, not the manager.
+- The usual guard rails apply: approval cards for pushes and pull requests, blocked commands, token counts.
+- `/leave` sends them home and prints the `claude --resume <id>` command if you want to carry on in the terminal.
+- Only one guest at a time, and only for a folder inside the project the office has open.
+- The office accepts this only from your own machine, and only with a token it keeps in `data/adopt-token`.
 ## What the floor tells you
 
 - Each name tag shows the tokens that agent used today; hover for the split by model and the

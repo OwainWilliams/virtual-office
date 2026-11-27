@@ -54,7 +54,7 @@ function renderFloor() {
   const ownerTag = tags.owner;
   ownerTag.replaceChildren(element('strong', '', state.owner), element('span', '', 'You'));
   // A desk the running office does not know about (an older server) gets no empty tag.
-  for (const [id, tag] of Object.entries(tags)) tag.hidden = id !== 'owner' && !state.agents[id];
+  for (const [id, tag] of Object.entries(tags)) tag.hidden = id !== 'owner' && (!state.agents[id] || (id === 'guest' && !state.agents.guest.adopted));
   let working = 0;
   let tokens = 0;
   let tokensToday = 0;
@@ -179,7 +179,7 @@ function questionCard(question) {
 
 // Light enough to read on the dark panel; each follows the colour of that person's shirt on the floor.
 const TONES = {
-  owner: '#e0b040', manager: '#b98af0', senior: '#5fa0ff', junior: '#4cc98a', qa: '#f09a4a', pm: '#f06b95', reviewer: '#a9b4c4',
+  owner: '#e0b040', manager: '#b98af0', senior: '#5fa0ff', junior: '#4cc98a', qa: '#f09a4a', pm: '#f06b95', reviewer: '#a9b4c4', guest: '#3fd0d8',
 };
 
 function avatar(id) {

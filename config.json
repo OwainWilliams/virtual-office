@@ -61,6 +61,11 @@
       "name": "Claudel",
       "role": "Contractor",
       "model": "opus"
+    },
+    "guest": {
+      "name": "Claudiu",
+      "role": "Guest",
+      "model": "opus"
     }
   },
   "needsOwnerApproval": [
